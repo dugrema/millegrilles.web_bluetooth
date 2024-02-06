@@ -6,11 +6,19 @@ import { LayoutMillegrilles } from '@dugrema/millegrilles.reactjs'
 
 import manifest from './manifest.build'
 
+// Importer JS global
 import 'react-bootstrap/dist/react-bootstrap.min.js'
+
+// Importer cascade CSS global
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'font-awesome/css/font-awesome.min.css'
+import '@dugrema/millegrilles.reactjs/dist/index.css'
+
+import './index.scss'
 import './App.css'
 
-
 const Menu = React.lazy( () => import('./Menu') )
+const ConfigurerAppareil = React.lazy( () => import('./ConfigurerAppareil') )
 
 function App() {
 
@@ -38,10 +46,10 @@ function App() {
 export default App
 
 function LayoutApp(props) {
-  const {sectionAfficher, setSectionAfficher} = props
+  const {menu, sectionAfficher, setSectionAfficher} = props
 
   return (
-    <LayoutMillegrilles>
+    <LayoutMillegrilles menu={menu}>
 
       <div className='top-spacer-menu'></div>
       
@@ -61,5 +69,24 @@ function LayoutApp(props) {
 }
 
 function MainBody(props) {
-  return 'Main'
+
+  const {sectionAfficher} = props
+
+  let SectionAfficher = null
+  switch(sectionAfficher) {
+    case 'configurerAppareil': SectionAfficher = ConfigurerAppareil; break
+    default:
+      SectionAfficher = DefaultBody
+  }
+
+  return <SectionAfficher {...props} />
+
+}
+
+function DefaultBody(props) {
+  return (
+    <div>
+      <p>Choisir une action a partir du menu.</p>
+    </div>
+  )
 }

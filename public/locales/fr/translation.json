@@ -1,0 +1,9 @@
+{
+    "titre": "Bluetooth",
+    "application": {
+        "nom": "Bluetooth"
+    },
+    "menu": {
+        "configurer": "Configurer"
+    }
+}

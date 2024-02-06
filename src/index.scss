@@ -1,0 +1,209 @@
+@use "sass:map";
+
+@import "@dugrema/millegrilles.reactjs/src/overrides.scss";
+@import "~bootstrap/scss/bootstrap";
+@import "@dugrema/millegrilles.reactjs/src/styles.scss";
+
+H2, H3 {
+    padding-top: 1rem;
+    padding-bottom: 0.25rem;
+}
+
+/* Page applications */
+.applications A {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+    text-align: center;
+    background: $second-color;
+}
+
+.liste-boutons DIV, 
+.liste-boutons BUTTON {
+    margin-right: 0.25rem;
+    margin-bottom: 1rem;
+}
+.boutons.preauth {
+    margin-top: 3rem;
+}
+.boutons.preauth button {
+    margin-right: 1rem;
+    width: 7rem;
+}
+$xsmall-width: map.get($grid-breakpoints, xs);
+@media (min-width: $xsmall-width) {
+    div.boutons.preauth .bouton-gauche { text-align: center; }
+    div.boutons.preauth .bouton-droite { text-align: center; }  
+}
+
+.qr-code-background {
+    background: #fff;
+    padding: 0.3rem;
+}
+
+/* Cards */
+.card-senseur {
+    background-color: $second-color;
+}
+
+.vieux {
+    color: yellow;
+}
+
+.expire {
+    color: red;
+}
+
+.valeur-numerique {
+    text-align: right;
+}
+
+.valeur-texte {
+    word-wrap: break-word;
+    word-break: break-all;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bouton-link-nopadding button {
+    word-wrap: break-word;
+    word-break: break-all;
+    text-align: left;
+    padding: 0px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.valeur-date-droite {
+    text-align: right;
+}
+
+.bouton-droite, .bouton-fermer {
+    text-align: right;
+}
+
+.form-button-centrer {
+    text-align: center;
+}
+
+.form-button-centrer BUTTON {
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
+}
+
+.form-button-vertmargin {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.appareil-ligne {
+    margin-top: 0.4rem;
+    
+}
+
+.senseur-ligne {
+    background: $second-color;
+}
+
+.appareil-ligne button {
+    word-wrap: break-word;
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    font-size: larger;
+}
+
+.text-overflow-clip {
+    word-wrap: normal;
+    word-break: keep-all;
+    overflow: hidden;
+    text-overflow: clip;
+}
+
+.text-ellipsis {
+    word-wrap: normal;
+    word-break: keep-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.display-ligne {
+    margin-bottom: 0.8rem;
+}
+
+.text-monospace {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.wrap-rapport {
+    min-height: 15rem;
+}
+
+/* react-datetime overrides */
+.rdtPicker,
+.rdtPicker td.rdtNew {
+    background: $second-color;
+}
+.rdtPicker td.rdtDay:hover,
+.rdtPicker td.rdtHour:hover,
+.rdtPicker td.rdtMinute:hover,
+.rdtPicker td.rdtSecond:hover,
+.rdtPicker .rdtTimeToggle:hover,
+.rdtPicker thead tr:first-of-type th:hover {
+    background: $third-color;
+}
+
+.hausse {
+    color: green;
+}
+
+.baisse {
+    color: red;
+}
+
+.tendance {
+    overflow-wrap: normal;
+    word-break: keep-all;
+}
+
+.tendance > .fa {
+    display: none;
+    padding-right: 0.6rem;
+}
+
+.tendance.baisse > .fa.fa-level-down {
+    display: inline;
+}
+
+.tendance.hausse > .fa.fa-level-up {
+    display: inline;
+}
+
+.senseur-ligne.cache {
+    color: $first-color;
+}
+
+.top-spacer-menu {
+    position: sticky;
+    top: 1rem;
+    height: 2.7rem;
+    width: 1rem;
+    z-index: 0;
+}
+
+.table-header .val-numerique {
+    text-align: right;
+}
+
+.button-bar {
+    padding-top: 3rem;
+    padding-bottom: 1rem;
+    text-align: center;
+}
+
+.button-bar button {
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
+}

@@ -9,21 +9,20 @@ import { Menu as MenuMillegrilles, DropDownLanguage } from '@dugrema/millegrille
 
 function Menu(props) {
 
-    const { i18n, setSectionAfficher, estProprietaire } = props
+    const { i18n, setSectionAfficher } = props
   
     const { t } = useTranslation()
-    const [showModalInfo, setShowModalInfo] = useState(false)
-    const handlerCloseModalInfo = useCallback(()=>setShowModalInfo(false), [setShowModalInfo])
   
     const handlerSelect = useCallback(eventKey => {
         switch(eventKey) {
           case 'portail': window.location = '/millegrilles'; break
-          case 'deconnecter': window.location = '/auth/deconnecter_usager'; break
-          // case 'instances': setSectionAfficher('Instances'); break
+          case 'configurerAppareil': 
+            setSectionAfficher(eventKey)
+            break
           default:
             setSectionAfficher('')
         }
-    }, [setSectionAfficher, setShowModalInfo])
+    }, [setSectionAfficher])
   
     const handlerChangerLangue = eventKey => {i18n.changeLanguage(eventKey)}
     const brand = (
@@ -40,10 +39,11 @@ function Menu(props) {
                 brand={brand} 
                 labelMenu="Menu" 
                 onSelect={handlerSelect} 
-                i18nInstance={i18n}>
+                i18nInstance={i18n}
+                etatConnexion={true}>
   
-              <Nav.Link eventKey="configuration" title="Configuration des appareils">
-                  {t('menu.configuration')}
+              <Nav.Link eventKey="configurerAppareil" title="Configurer des appareils">
+                  {t('menu.configurer')}
               </Nav.Link>
   
               <DropDownLanguage title={t('menu.language')} onSelect={handlerChangerLangue}>

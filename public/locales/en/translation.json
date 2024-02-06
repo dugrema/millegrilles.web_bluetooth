@@ -1,0 +1,14 @@
+{
+    "titre": "Bluetooth",
+    "application": {
+        "nom": "Bluetooth"
+    },
+    "menu": {
+        "configuration": "Configuration",
+        "domaines": "Domains",
+        "information": "Information",
+        "language": "Language",
+        "portail": "Portal",
+        "deconnecter": "Logout"
+    }
+}

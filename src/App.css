@@ -1,16 +1,26 @@
-.App {
-  text-align: center;
+/* h1 {
+  font-size: 2em;
+  padding-top: 1em;
+  color: skyblue;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+h2 {
+  font-size: 1.7em;
+  color: skyblue;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+h3 {
+  font-size: 1.3em;
+  color: skyblue;
+} */
+/* 
+label, .label {
+  color: skyblue;
+  text-align: right;
+}
+
+.main-body {
+  padding-top: 2em;
 }
 
 .App-header {
@@ -26,13 +36,205 @@
 
 .App-link {
   color: #61dafb;
+} */
+
+.bouton {
+  text-align: right;
+  padding-right: 1em;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.optionrow {
+  padding-bottom: 1em;
+}
+
+input.pin {
+  margin-left: 0.5em;
+}
+
+.boutons {
+  text-align: right;
+}
+
+.row-boutons {
+  text-align: center;
+}
+
+.formLogin > div {
+  padding-top: 1em;
+  padding-bottom: 1em;
+}
+
+.pinInput {
+  width: 20em;
+}
+
+.alignement-droite {
+  text-align: right;
+}
+
+.code-qr {
+  padding: 1em;
+}
+
+div.table div.table-header {
+  background-color: #9eb1bb;
+  font-weight: bolder;
+}
+
+@media print {
+
+  .w3-top {
+    display: none;
   }
-  to {
-    transform: rotate(360deg);
+
+  .menu-gauche {
+    display: none;
   }
+}
+
+.flex-wrapper {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.footer {
+  width: 100%;
+  margin-top: 3em;
+  padding: 1em;
+  padding-bottom: 0.5em;
+  min-height: 4em;
+  color: White;
+}
+
+.footer H2 {
+  font-size: 1.25rem;
+  font-family: "Tahoma", sans-serif;
+}
+
+.footer div.row {
+  padding-left: 1em;
+  padding-right: 1em;
+}
+
+.footer A, .footer A:visited {
+  color: White;
+  text-decoration: underline;
+}
+
+.millegrille-footer {
+  padding-top: 4em;
+  text-align: center;
+  font-size: 0.75rem;
+  font-family: "Tahoma", sans-serif;
+}
+
+@media screen and (min-width: 768px) {
+  .millegrille-footer {
+    padding-top: 4em;
+  }
+
+  .footer-center {
+    text-align: center;
+  }
+
+  .footer-right {
+    text-align: right;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  .millegrille-footer {
+    padding-top: 0.5em;
+  }
+
+  .footer-right {
+    text-align: center;
+    padding-top: 0.5em;
+  }
+}
+
+.idmg {
+  font-size: smaller;
+}
+
+i.protege {
+  color: green;
+}
+
+.expire {
+  color: tomato;
+}
+
+.config-page > div {
+  padding-bottom: 2em;
+}
+
+.config-lcd label {
+  text-align: right;
+}
+
+.card-senseur-header {
+  font-size: 0.9em;
+  padding: 5px;
+}
+
+.card-senseur-timestamp {
+  font-size: 1em;
+  padding-right: 1em;
+  text-align: right;
+}
+
+.card-senseur-contenu {
+  font-size: 0.85em;
+  padding-left: 0px;
+  padding-right: 0px;
+}
+
+.card-senseur-uuid {
+  font-size: 0.7em;
+}
+
+.card-senseur-editbutton {
+  font-size: 1.5em;
+  text-align: right;
+}
+
+.card-senseur-editbutton button {
+  padding: 0em 0.2em 0em 0.2em;
+  width: 1.4em;
+}
+
+.card-senseur-blynkinfo {
+  text-align: right;
+  padding-bottom: 0.6em;
+}
+
+.card-senseur-app {
+  padding-top: 0.7em;
+}
+
+.row-switch-activation {
+  padding-top: 0.5em;
+  padding-bottom: 1em;
+}
+
+.senseur-nom {
+  font-weight: bold;
+}
+.senseur-date {
+  text-align: right;
+}
+.senseur-valeur {
+  text-align: right;
+}
+
+.appareils-supprimes {
+  padding-top: 2rem;
+}
+
+.horizontal-padding {
+  margin-left: 1rem;
+  margin-right: 1rem;
 }
