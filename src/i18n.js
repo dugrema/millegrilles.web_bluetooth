@@ -30,7 +30,7 @@ i18n
     // debug: true,
 
     backend: {
-      loadPath: '/locales/{{lng}}/{{ns}}.json',
+      loadPath: '/bluetooth/locales/{{lng}}/{{ns}}.json',
     },
 
     interpolation: {
