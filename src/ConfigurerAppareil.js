@@ -7,6 +7,8 @@ import Col from 'react-bootstrap/Col'
 
 import millegrillesServicesConst from './services.json'
 
+import { FormatterDate } from '@dugrema/millegrilles.reactjs'
+
 const bluetoothSupporte = 'bluetooth' in navigator
 const bluetooth = navigator.bluetooth
 
@@ -42,7 +44,7 @@ export default ConfigurerAppareil
 
 function AppareilsPaired(props) {
 
-    const {devices, setDevices, setDeviceSelectionne} = props
+    const {devices, setDevices, deviceSelectionne, setDeviceSelectionne} = props
 
     const selectionnerDevice = useCallback(deviceId=>{
         console.debug("Selectioner device %s", deviceId)
@@ -61,6 +63,7 @@ function AppareilsPaired(props) {
     }, [setDeviceSelectionne])
 
     const refreshDevices = useCallback(()=>{
+        console.debug("Refresh devices")
         bluetooth.getDevices()
         .then(devices=>{
             const deviceCopy = devices.reduce((acc, item)=>{
@@ -76,6 +79,11 @@ function AppareilsPaired(props) {
     useEffect(()=>{
         // Charger devices
         refreshDevices()
+        // const refreshInterval = setInterval(refreshDevices, 5_000)
+        // return () => {
+        //     // Cleanup interval
+        //     clearInterval(refreshInterval)
+        // }
     }, [refreshDevices])
 
     const ajouterCb = useCallback(()=>{
@@ -89,7 +97,7 @@ function AppareilsPaired(props) {
                 setDeviceSelectionne(device)
             })
             .catch(err=>console.error("Erreur chargement device ", err))
-    }, [devices, setDevices])
+    }, [devices, setDevices, setDeviceSelectionne])
 
     return (
         <div>
@@ -98,14 +106,16 @@ function AppareilsPaired(props) {
             <ListeAppareil devices={devices} selectionnerDevice={selectionnerDevice} />
 
             <p></p>
-
             <p><Button variant="secondary" onClick={ajouterCb}>Ajouter</Button></p>
+
+            <ConfigurerAppareilSelectionne deviceSelectionne={deviceSelectionne} fermer={()=>setDeviceSelectionne('')} />
+
         </div>
     )
 }
 
 function sortDevices(a, b) {
-    if(a == b) {} 
+    if(a === b) {} 
     else if(!a) return 1
     else if(!b) return -1
     
@@ -168,4 +178,157 @@ async function requestDevice() {
     }
     console.debug("Device choisi ", device)
     return device
+}
+
+function ConfigurerAppareilSelectionne(props) {
+    const { deviceSelectionne, fermer } = props
+
+    const [etatAppareil, setEtatAppareil] = useState('')
+
+    const rafraichir = useCallback(()=>{
+        chargerEtatAppareil(deviceSelectionne)
+            .then(etat=>{
+                console.debug("Etat appareil %O", etat)
+                setEtatAppareil(etat)
+            })
+            .catch(err=>console.debug("Erreur chargement etat appareil ", err))
+    }, [deviceSelectionne, setEtatAppareil])
+
+    useEffect(rafraichir, [rafraichir])
+
+    if(!deviceSelectionne) return ''
+
+    return (
+        <div>
+            <hr />
+            <h3>Configurer {deviceSelectionne.name}</h3>
+
+            <EtatAppareil value={etatAppareil} />
+            
+            <p></p>
+            <Button variant="secondary" onClick={rafraichir}>Rafraichir</Button>
+            <Button variant="secondary" onClick={fermer}>Fermer</Button>
+            <p></p>
+        </div>
+    )
+}
+
+function EtatAppareil(props) {
+    const { value } = props
+
+    if(!value) return ''
+
+    return (
+        <div>
+            <Row><Col xs={12} md={3}>Idmg</Col><Col>{value.idmg}</Col></Row>
+            <Row><Col xs={12} md={3}>User id</Col><Col>{value.userId}</Col></Row>
+
+            <Row><Col xs={6} sm={4} md={3}>WIFI SSID</Col><Col>{value.ssid}</Col></Row>
+            <Row><Col xs={6} sm={4} md={3}>WIFI ip</Col><Col>{value.ip}</Col></Row>
+            <Row><Col xs={6} sm={4} md={3}>WIFI subnet</Col><Col>{value.subnet}</Col></Row>
+            <Row><Col xs={6} sm={4} md={3}>WIFI gateway</Col><Col>{value.gateway}</Col></Row>
+            <Row><Col xs={6} sm={4} md={3}>WIFI dns</Col><Col>{value.dns}</Col></Row>
+
+            <Row><Col xs={6} sm={4} md={3}>Ntp sync</Col><Col>{value.ntp?'Oui':'Non'}</Col></Row>
+            <Row><Col xs={6} sm={4} md={3}>Heure</Col><Col><FormatterDate value={value.time}/></Col></Row>
+        </div>
+    )
+}
+
+async function chargerEtatAppareil(device) {
+    try {
+        const server = await device.gatt.connect()
+        if(!server.connected) {
+            console.error("GATT connexion - echec")
+            return
+        }
+        const service = await server.getPrimaryService(millegrillesServicesConst.services.etat.uuid)
+        console.debug("Service : ", service)
+        const characteristics = await service.getCharacteristics()
+        const etat = await lireEtatCharacteristics(characteristics)
+
+        try {
+            await server.disconnect()
+        } catch(err) {
+            console.warn("Erreur deconnexion %O", err)
+        }
+
+        return etat
+    } catch(err) {
+        console.error("Erreur chargerEtatAppareil %O", err)
+    }
+}
+
+async function lireEtatCharacteristics(characteristics) {
+    console.debug("Nombre characteristics : " + characteristics.length)
+    const etat = {}
+    for await(const characteristic of characteristics) {
+        console.debug("Lire characteristic " + characteristic.uuid)
+        const uuidLowercase = characteristic.uuid.toLowerCase()
+        switch(uuidLowercase) {
+            case millegrillesServicesConst.services.etat.characteristics.getUserId:
+                etat.userId = await readTextValue(characteristic)
+                break
+            case millegrillesServicesConst.services.etat.characteristics.getIdmg:
+                etat.idmg = await readTextValue(characteristic)
+                break
+            case millegrillesServicesConst.services.etat.characteristics.getWifi1:
+                Object.assign(etat, await readWifi1(characteristic))
+                break
+            case millegrillesServicesConst.services.etat.characteristics.getWifi2:
+                etat.ssid = await readTextValue(characteristic)
+                break
+            case millegrillesServicesConst.services.etat.characteristics.getTime:
+                Object.assign(etat, await readTime(characteristic))
+                break
+            default:
+                console.debug("Characteristic etat inconnue : " + characteristic.uuid)
+        }
+    }
+    return etat
+}
+
+async function readTextValue(characteristic) {
+    const value = await characteristic.readValue()
+    return new TextDecoder().decode(value)
+}
+
+async function readTime(characteristic) {
+    const value = await characteristic.readValue()
+    console.debug("readTime value %O", value)
+    const etatNtp = value.getUint8(0) === 1
+    const timeSliceVal = new Uint32Array(value.buffer.slice(1, 5))
+    console.debug("Time slice val ", timeSliceVal)
+    const timeVal = timeSliceVal[0]
+    const dateTime = new Date(timeVal * 1000)
+    console.debug("Time val : %O, Date %O", timeVal, dateTime)
+    return {ntp: etatNtp, time: timeVal}
+}
+
+function convertirBytesIp(adresse) {
+    let adresseStr = adresse.join('.')
+    return adresseStr
+}
+
+async function readWifi1(characteristic) {
+    const value = await characteristic.readValue()
+    console.debug("readWifi1 value %O", value)
+    const connected = value.getUint8(0) === 1,
+          status = value.getUint8(1),
+          channel = value.getUint8(2)
+    const adressesSlice = value.buffer.slice(3, 19)
+    const adressesList = new Uint8Array(adressesSlice)
+    const ip = convertirBytesIp(adressesList.slice(0, 4))
+    const subnet = convertirBytesIp(adressesList.slice(4, 8))
+    const gateway = convertirBytesIp(adressesList.slice(8, 12))
+    const dns = convertirBytesIp(adressesList.slice(12, 16))
+
+    const etatWifi = {
+        connected,
+        status,
+        channel,
+        ip, subnet, gateway, dns
+    }
+
+    return etatWifi
 }
