@@ -4,6 +4,7 @@ import Alert from 'react-bootstrap/Alert'
 import Button from 'react-bootstrap/Button'
 import Row from 'react-bootstrap/Row'
 import Col from 'react-bootstrap/Col'
+import Form from 'react-bootstrap/Form'
 
 import millegrillesServicesConst from './services.json'
 
@@ -86,7 +87,7 @@ function AppareilsPaired(props) {
         // }
     }, [refreshDevices])
 
-    const ajouterCb = useCallback(()=>{
+    const scanCb = useCallback(()=>{
         console.debug("Request device")
         requestDevice()
             .then(device=>{
@@ -106,7 +107,7 @@ function AppareilsPaired(props) {
             <ListeAppareil devices={devices} selectionnerDevice={selectionnerDevice} />
 
             <p></p>
-            <p><Button variant="secondary" onClick={ajouterCb}>Ajouter</Button></p>
+            <p><Button variant="primary" onClick={scanCb}>Scan</Button></p>
 
             <ConfigurerAppareilSelectionne deviceSelectionne={deviceSelectionne} fermer={()=>setDeviceSelectionne('')} />
 
@@ -209,6 +210,10 @@ function ConfigurerAppareilSelectionne(props) {
             <Button variant="secondary" onClick={rafraichir}>Rafraichir</Button>
             <Button variant="secondary" onClick={fermer}>Fermer</Button>
             <p></p>
+
+            {etatAppareil?
+                <ValeursConfiguration device={deviceSelectionne} value={etatAppareil} />
+            :''}
         </div>
     )
 }
@@ -331,4 +336,171 @@ async function readWifi1(characteristic) {
     }
 
     return etatWifi
+}
+
+function ValeursConfiguration(props) {
+
+    const { device, value } = props
+
+    const [idmg, setIdmg] = useState(value.idmg)
+    const [userId, setUserId] = useState(value.userId)
+    const [ssid, setSsid] = useState(value.ssid)
+    const [wifiPassword, setWifiPassword] = useState('')
+    const [relai, setRelai] = useState('')    
+
+    const submitUsager = useCallback(e=>{
+        console.debug("Submit usager ", e)
+        e.stopPropagation()
+        e.preventDefault()
+
+        const cb = async characteristic => {
+            const params = {idmg, userId}
+            await transmettreDict(characteristic, params)
+        }
+        
+        const configurerUuid = millegrillesServicesConst.services.configurer.uuid,
+              setUserUuid = millegrillesServicesConst.services.configurer.characteristics.setUser
+
+        submitParamAppareil(device, configurerUuid, setUserUuid, cb).then(()=>{
+            console.debug("Params user envoyes")
+        })
+        .catch(err=>console.error("Erreur submit user ", err))
+    }, [device, idmg, userId])
+
+    const submitWifi = useCallback(e=>{
+        console.debug("Submit wifi ", e)
+        e.stopPropagation()
+        e.preventDefault()
+
+        const cb = async characteristic => {
+            const params = {ssid, password: wifiPassword}
+            await transmettreDict(characteristic, params)
+        }
+
+        const configurerUuid = millegrillesServicesConst.services.configurer.uuid,
+              setWifiUuid = millegrillesServicesConst.services.configurer.characteristics.setWifi
+
+        submitParamAppareil(device, configurerUuid, setWifiUuid, cb).then(()=>{
+            console.debug("Params wifi envoyes")
+        })
+        .catch(err=>console.error("Erreur submit wifi ", err))
+
+    }, [device, ssid, wifiPassword])
+
+    const submitRelai = useCallback(e=>{
+        console.debug("Submit relai ", e)
+        e.stopPropagation()
+        e.preventDefault()
+
+        const relais = [relai]
+        const params = {relais}
+
+        const cb = async characteristic => {
+            await transmettreDict(characteristic, params)
+        }
+        
+        const configurerUuid = millegrillesServicesConst.services.configurer.uuid,
+              setRelaiUuid = millegrillesServicesConst.services.configurer.characteristics.setRelais
+
+        submitParamAppareil(device, configurerUuid, setRelaiUuid, cb).then(()=>{
+            console.debug("Params relai envoyes")
+        })
+        .catch(err=>console.error("Erreur submit relai ", err))
+    }, [device, relai])
+
+    return (
+        <div>
+            <h3>Parametres usager</h3>
+            <p>
+                Obtenir ces parametres a partir de la section <strong>Configuration / Fichier</strong> de
+                l'application SenseursPassifs de MilleGrilles.
+            </p>
+            <Form onSubmit={submitUsager}>
+                <Form.Group controlId="formUserid">
+                    <Form.Label>User Id</Form.Label>
+                    <Form.Control type="text" placeholder="zABCD01234..." value={userId} onChange={e=>setUserId(e.currentTarget.value)} />
+                </Form.Group>
+                <Form.Group controlId="formIdmg">
+                    <Form.Label>IDMG</Form.Label>
+                    <Form.Control type="text" placeholder="zABCD01234..." value={idmg} onChange={e=>setIdmg(e.currentTarget.value)} />
+                    <Form.Text className="text-muted">
+                        Optionnel si deja configure.
+                    </Form.Text>
+                </Form.Group>
+                <Button variant="secondary" type="submit">Appliquer</Button>
+            </Form>
+
+            <h3>Wifi</h3>
+            <Form onSubmit={submitWifi}>
+                <Form.Group controlId="formSsid">
+                    <Form.Label>SSID</Form.Label>
+                    <Form.Control type="text" placeholder="Bell1234..." value={ssid} onChange={e=>setSsid(e.currentTarget.value)} />
+                </Form.Group>
+                <Form.Group controlId="formWifiPassword">
+                    <Form.Label>Wifi password</Form.Label>
+                    <Form.Control type="password" value={wifiPassword} onChange={e=>setWifiPassword(e.currentTarget.value)} />
+                </Form.Group>
+                <Button variant="secondary" type="submit">Appliquer</Button>
+            </Form>
+
+            <h3>Connexion serveur</h3>
+            <Form onSubmit={submitRelai}>
+                <Form.Group controlId="formRelai">
+                    <Form.Label>Serveur relai</Form.Label>
+                    <Form.Control type="text" placeholder="https://millegrilles.com/senseurspassifs_relai ..." value={relai} onChange={e=>setRelai(e.currentTarget.value)} />
+                </Form.Group>
+                <Button variant="secondary" type="submit">Appliquer</Button>
+            </Form>
+
+            <p></p>
+        </div>
+    )
+}
+
+async function transmettreString(characteristic, valeur) {
+    const CONST_FIN = new Uint8Array(1)
+    CONST_FIN.set(0, 0x0)
+
+    let valeurArray = new TextEncoder().encode(valeur)
+
+    while(valeurArray.length > 0) {
+        let valSlice = valeurArray.slice(0, 20)
+        valeurArray = valeurArray.slice(20)
+        await characteristic.writeValueWithResponse(valSlice)
+    }
+
+    // Envoyer char 0x0
+    await characteristic.writeValueWithResponse(CONST_FIN)
+}
+
+async function transmettreDict(characteristic, valeur) {
+    return transmettreString(characteristic, JSON.stringify(valeur))
+}
+
+async function submitParamAppareil(device, serviceUuid, characteristicUuid, callback) {
+    try {
+        const server = await device.gatt.connect()
+        if(!server.connected) {
+            console.error("GATT connexion - echec")
+            return
+        }
+        const service = await server.getPrimaryService(serviceUuid)
+        const characteristics = await service.getCharacteristics()
+
+        for(const characteristic of characteristics) {
+            const uuidLowercase = characteristic.uuid.toLowerCase()
+            if(uuidLowercase === characteristicUuid) {
+                await callback(characteristic)
+                break
+            }
+        }
+
+        try {
+            await server.disconnect()
+        } catch(err) {
+            console.warn("Erreur deconnexion %O", err)
+        }
+    } catch(err) {
+        console.error("Erreur chargerEtatAppareil %O", err)
+    }
 }
