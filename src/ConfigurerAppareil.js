@@ -162,9 +162,9 @@ async function requestDevice() {
     try {
         device = await bluetooth.requestDevice({
             // Requis : service de configuration
-            filters: [{services: [configurerUuid]}],
+            filters: [{services: [etatUuid]}],
             // Optionnels - requis par Chrome sur Windows (permission d'acces)
-            optionalServices: [etatUuid, environmentalUuid],
+            optionalServices: [configurerUuid, environmentalUuid],
         })
     } catch(err) {
         if(err.code === 8) {
@@ -354,14 +354,14 @@ function ValeursConfiguration(props) {
         e.preventDefault()
 
         const cb = async characteristic => {
-            const params = {idmg, userId}
+            const params = {commande: 'setUser', idmg, user_id: userId}
             await transmettreDict(characteristic, params)
         }
         
         const configurerUuid = millegrillesServicesConst.services.configurer.uuid,
-              setUserUuid = millegrillesServicesConst.services.configurer.characteristics.setUser
+              setConfigUuid = millegrillesServicesConst.services.configurer.characteristics.setConfig
 
-        submitParamAppareil(device, configurerUuid, setUserUuid, cb).then(()=>{
+        submitParamAppareil(device, configurerUuid, setConfigUuid, cb).then(()=>{
             console.debug("Params user envoyes")
         })
         .catch(err=>console.error("Erreur submit user ", err))
@@ -373,14 +373,14 @@ function ValeursConfiguration(props) {
         e.preventDefault()
 
         const cb = async characteristic => {
-            const params = {ssid, password: wifiPassword}
+            const params = {commande: 'setWifi', ssid, password: wifiPassword}
             await transmettreDict(characteristic, params)
         }
 
         const configurerUuid = millegrillesServicesConst.services.configurer.uuid,
-              setWifiUuid = millegrillesServicesConst.services.configurer.characteristics.setWifi
+              setConfigUuid = millegrillesServicesConst.services.configurer.characteristics.setConfig
 
-        submitParamAppareil(device, configurerUuid, setWifiUuid, cb).then(()=>{
+        submitParamAppareil(device, configurerUuid, setConfigUuid, cb).then(()=>{
             console.debug("Params wifi envoyes")
         })
         .catch(err=>console.error("Erreur submit wifi ", err))
@@ -392,17 +392,16 @@ function ValeursConfiguration(props) {
         e.stopPropagation()
         e.preventDefault()
 
-        const relais = [relai]
-        const params = {relais}
+        const params = {commande: 'setRelai', relai}
 
         const cb = async characteristic => {
             await transmettreDict(characteristic, params)
         }
         
         const configurerUuid = millegrillesServicesConst.services.configurer.uuid,
-              setRelaiUuid = millegrillesServicesConst.services.configurer.characteristics.setRelais
+              setConfigUuid = millegrillesServicesConst.services.configurer.characteristics.setConfig
 
-        submitParamAppareil(device, configurerUuid, setRelaiUuid, cb).then(()=>{
+        submitParamAppareil(device, configurerUuid, setConfigUuid, cb).then(()=>{
             console.debug("Params relai envoyes")
         })
         .catch(err=>console.error("Erreur submit relai ", err))
@@ -478,19 +477,30 @@ async function transmettreDict(characteristic, valeur) {
 }
 
 async function submitParamAppareil(device, serviceUuid, characteristicUuid, callback) {
+    if(!device) throw new Error("Device manquant")
+    if(!serviceUuid) throw new Error('serviceUuid vide')
+    if(!characteristicUuid) throw new Error('characteristicUuid vide')
+
+    console.debug("submitParamAppareil serviceUuid %s, characteristicUuid %s", serviceUuid, characteristicUuid)
+
     try {
         const server = await device.gatt.connect()
         if(!server.connected) {
             console.error("GATT connexion - echec")
             return
         }
+        console.debug("GATT server ", server)
         const service = await server.getPrimaryService(serviceUuid)
+        console.debug("GATT service ", service)
         const characteristics = await service.getCharacteristics()
+        console.debug("GATT service characteristics ", characteristics)
 
+        let traite = false
         for(const characteristic of characteristics) {
             const uuidLowercase = characteristic.uuid.toLowerCase()
             if(uuidLowercase === characteristicUuid) {
                 await callback(characteristic)
+                traite = true
                 break
             }
         }
@@ -500,6 +510,11 @@ async function submitParamAppareil(device, serviceUuid, characteristicUuid, call
         } catch(err) {
             console.warn("Erreur deconnexion %O", err)
         }
+
+        if(!traite) {
+            throw new Error(`characteristic ${characteristicUuid} inconnue pour service ${serviceUuid}`)
+        }
+
     } catch(err) {
         console.error("Erreur chargerEtatAppareil %O", err)
     }

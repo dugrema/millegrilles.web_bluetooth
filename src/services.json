@@ -3,9 +3,7 @@
         "configurer": {
             "uuid": "7aac7580-88d7-480f-8a01-65406c2decaf",
             "characteristics": {
-                "setWifi": "7aac7581-88d7-480f-8a01-65406c2decaf",
-                "setRelais": "7aac7582-88d7-480f-8a01-65406c2decaf",
-                "setUser": "7aac7586-88d7-480f-8a01-65406c2decaf"
+                "setConfig": "7aac7581-88d7-480f-8a01-65406c2decaf"
             }
         },
         "etat": {
