@@ -109,7 +109,9 @@ function AppareilsPaired(props) {
             <ListeAppareil devices={devices} selectionnerDevice={selectionnerDevice} />
 
             <p></p>
-            <p><Button variant="primary" onClick={scanCb}>Scan</Button></p>
+            <p>
+                <Button variant="primary" onClick={scanCb}>Scan</Button>
+            </p>
 
             <ConfigurerAppareilSelectionne deviceSelectionne={deviceSelectionne} fermer={()=>setDeviceSelectionne('')} />
 
@@ -164,9 +166,11 @@ async function requestDevice() {
     try {
         device = await bluetooth.requestDevice({
             // Requis : service de configuration
-            filters: [{services: [etatUuid]}],
+            // filters: [{services: [etatUuid]}],
+            filters: [{services: [configurerUuid]}],
             // Optionnels - requis par Chrome sur Windows (permission d'acces)
-            optionalServices: [configurerUuid, environmentalUuid],
+            // optionalServices: [configurerUuid, environmentalUuid],
+            optionalServices: [etatUuid, environmentalUuid],
         })
     } catch(err) {
         if(err.code === 8) {
