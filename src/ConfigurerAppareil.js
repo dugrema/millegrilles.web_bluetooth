@@ -65,16 +65,18 @@ function AppareilsPaired(props) {
 
     const refreshDevices = useCallback(()=>{
         console.debug("Refresh devices")
-        bluetooth.getDevices()
-        .then(devices=>{
-            const deviceCopy = devices.reduce((acc, item)=>{
-                acc[item.id] = {name: item.name}
-                return acc
-            }, {})
-            console.debug("Devices deja paires : %O", devices)
-            setDevices(deviceCopy)
-        })
-        .catch(err=>console.error("Erreur chargement devices deja paires ", err))
+        if('getDevices' in bluetooth) {
+            bluetooth.getDevices()
+            .then(devices=>{
+                const deviceCopy = devices.reduce((acc, item)=>{
+                    acc[item.id] = {name: item.name}
+                    return acc
+                }, {})
+                console.debug("Devices deja paires : %O", devices)
+                setDevices(deviceCopy)
+            })
+            .catch(err=>console.error("Erreur chargement devices deja paires ", err))
+        }
     }, [setDevices])
 
     useEffect(()=>{
