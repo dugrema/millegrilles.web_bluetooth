@@ -24,6 +24,7 @@ function ConfigurerAppareil(props) {
                 <Alert variant='warning'>
                     <Alert.Heading>Non supporte</Alert.Heading>
                     <p>Bluetooth non supporte sur ce navigateur.</p>
+                    <p>Utiliser Chrome ou Chromium lorsque possible.</p>
                     <p>Sur iOS, utiliser le navigateur <a href="https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055">Bluefy</a>.</p>
                 </Alert>
             </div>
