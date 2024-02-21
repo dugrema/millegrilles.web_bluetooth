@@ -91,14 +91,26 @@ function ConfigurerAppareil(props) {
         }
     }, [deviceSelectionne, setBluetoothServer, fermerAppareilCb])
 
+    const authentifierHandler = useCallback(()=>{
+        setAuthSharedSecret('')
+        bleAuthentifier(bluetoothServer, authPrivateKey, authMessage)
+            .then(result=>{
+                console.debug("Shared key : ", result)
+                if(result && result.sharedSecret) {
+                    setAuthSharedSecret(result.sharedSecret)
+                } else {
+                    setAuthSharedSecret(false)
+                }
+            })
+            .catch(err=>{
+                console.error("Erreur BLE authentifier ", err)
+                setAuthSharedSecret(false)
+            })
+    }, [bluetoothServer, authMessage, authPrivateKey, setAuthSharedSecret])
+
     useEffect(()=>{
         if(bluetoothServer && bluetoothServer.connected && authMessage && authPrivateKey) {
-            bleAuthentifier(bluetoothServer, authPrivateKey, authMessage)
-                .then(sharedKey=>{
-                    console.debug("Shared key : ", sharedKey)
-                    setAuthSharedSecret(sharedKey.sharedSecret)
-                })
-                .catch(err=>console.error("Erreur BLE authentifier ", err))
+            authentifierHandler()
         }
     }, [bluetoothServer, authMessage, authPrivateKey, setAuthSharedSecret])
 
@@ -110,7 +122,9 @@ function ConfigurerAppareil(props) {
                 ssid={ssid}
                 wifiPassword={wifiPassword}
                 relai={relai} 
+                authMessage={authMessage}
                 authSharedSecret={authSharedSecret} 
+                authentifier={authentifierHandler}
                 fermer={fermerAppareilCb} />
         </div>
     )
@@ -125,7 +139,7 @@ function ConfigurerAppareil(props) {
                 relai={relai}
                 setRelai={setRelai} />
 
-            <Authentification authActive={!!authPrivateKey && !!authMessage} setAuthMessage={processAuthMessage} />
+            <RecevoirAuthentification authActive={!!authPrivateKey && !!authMessage} setAuthMessage={processAuthMessage} />
 
             <p>Les boutons suivants permettent de trouver un appareil avec la radio bluetooth.</p>
 
@@ -179,9 +193,7 @@ function ListeAppareil(props) {
 }
 
 function ConfigurerAppareilSelectionne(props) {
-    const { deviceSelectionne, server, ssid, wifiPassword, relai, authSharedSecret, fermer } = props
-
-    const workers = useWorkers()
+    const { deviceSelectionne, server, ssid, wifiPassword, relai, authMessage, authSharedSecret, authentifier, fermer } = props
 
     const [etatAppareil, setEtatAppareil] = useState('')
 
@@ -200,15 +212,6 @@ function ConfigurerAppareilSelectionne(props) {
                 fermer()
             })
     }, [server, setEtatAppareil, fermer])
-
-    const rebootCb = useCallback(()=>{
-        const commande = { commande: 'reboot' }
-        transmettreDictChiffre(workers, server, authSharedSecret, commande)
-            .then(()=>{
-                console.debug("Commande reboot transmise")
-            })
-            .catch(err=>console.error("Erreur reboot ", err))
-    }, [workers, server, authSharedSecret])
 
     useEffect(()=>{
         if(server.connected) {
@@ -232,7 +235,16 @@ function ConfigurerAppareilSelectionne(props) {
                 </Col>
             </Row>
 
+            <AttenteConnexion show={!etatAppareil} />
+
             <EtatAppareil value={etatAppareil} />
+
+            <AuthentifierAppareil 
+                show={!!etatAppareil} 
+                authSharedSecret={authSharedSecret} 
+                authMessage={authMessage} 
+                authentifier={authentifier} />
+
             <EtatLectures value={etatAppareil} server={server} authSharedSecret={authSharedSecret} />
             
             <SoumettreConfiguration 
@@ -243,10 +255,46 @@ function ConfigurerAppareilSelectionne(props) {
                 relai={relai} />
 
             <p></p>
+            <BoutonsAdmin show={!!etatAppareil} server={server} authSharedSecret={authSharedSecret} />
+            <p></p>
+            <p></p>
+        </div>
+    )
+}
+
+function AttenteConnexion(props) {
+    const { show } = props
+
+    if(!show) return ''
+
+    return (
+        <div>
+            <p>Connexion en cours <i className="fa fa-spinner fa-spin"/></p>
+        </div>
+    )
+}
+
+function BoutonsAdmin(props) {
+
+    const { show, server, authSharedSecret } = props
+
+    const workers = useWorkers()
+
+    const rebootCb = useCallback(()=>{
+        const commande = { commande: 'reboot' }
+        transmettreDictChiffre(workers, server, authSharedSecret, commande)
+            .then(()=>{
+                console.debug("Commande reboot transmise")
+            })
+            .catch(err=>console.error("Erreur reboot ", err))
+    }, [workers, server, authSharedSecret])
+
+    if(!show) return ''
+
+    return (
+        <div>
             <hr/>
             <Button variant="danger" onClick={rebootCb} disabled={!authSharedSecret}>Reboot</Button>
-            <p></p>
-            <p></p>
         </div>
     )
 }
@@ -377,16 +425,19 @@ function ValeursConfiguration(props) {
     )
 }
 
-function Authentification(props) {
+function RecevoirAuthentification(props) {
 
     const { authActive, setAuthMessage } = props
+
+    const [invalide, setInvalide] = useState(false)
 
     const workers = useWorkers()
 
     const variantButton = useMemo(()=>{
         if(authActive) return 'success'
+        if(invalide) return 'danger'
         return 'secondary'
-    }, [authActive])
+    }, [authActive, invalide])
 
     const authentifierCb = useCallback(()=>{
         console.debug("Params Authentification")
@@ -397,26 +448,55 @@ function Authentification(props) {
                     console.debug("Clipboard value : %O", params)
                     const resultatVerification = await workers.chiffrage.verifierMessage(params, {support_idmg_tiers: true})
                     console.debug("Resultat verification message : ", resultatVerification)
-                    if(true) {
+                    if(resultatVerification) {
                         setAuthMessage(params)
+                        setInvalide(false)
+                    } else {
+                        setInvalide(true)
                     }
                 } else {
                     console.warn("Clipboard mauvais type")
+                    setInvalide(true)
                 }
             })
             .catch(err=>{
                 console.error("Erreur lecture clipboard : ", err)
+                setInvalide(true)
             })
-    }, [workers, setAuthMessage])
+    }, [workers, setAuthMessage, setInvalide])
 
     return (
         <div>
             <p>
-                Authentification : utiliser SenseursPassifs pour copier l'information d'authentification. Revenir
-                sur cette page et cliquer sur le bouton Verifier pour conserver l'information de connexion aux appareils.
+                Authentification : utiliser SenseursPassifs pour copier l'information d'authentification en memoire (clipboard). 
+                Revenir sur cette page et cliquer sur le bouton Verifier pour conserver l'information de connexion aux appareils.
             </p>
             <Button variant={variantButton} onClick={authentifierCb} disabled={!navigator.clipboard}>Authentifier</Button>
         </div>
+    )
+}
+
+function AuthentifierAppareil(props) {
+
+    const { show, authSharedSecret, authMessage, authentifier } = props
+
+    const messageEtat = useMemo(()=>{
+        if(!authMessage) return <span>Non disponible (doit etre activee sur la page precedente).</span>
+        if(authSharedSecret === '') return <span>En cours <i className="fa fa-spinner fa-spin"/></span>
+        if(authSharedSecret === false) return (
+            <span>Echec <Button variant="secondary" onClick={authentifier}>Ressayer</Button></span>
+        )
+        if(authSharedSecret) return <span>OK</span>
+        return <span>Erreur</span>
+    }, [authSharedSecret, authMessage, authentifier])
+
+    if(!show) return ''
+
+    return (
+        <Row>
+            <Col xs={12} md={3}>Authentification</Col>
+            <Col>{messageEtat}</Col>
+        </Row>
     )
 }
 
