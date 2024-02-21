@@ -57,6 +57,8 @@ async function transmettreString(characteristic, valeur) {
     const CONST_FIN = new Uint8Array(1)
     CONST_FIN.set(0, 0x0)
 
+    console.debug("transmettre string %s (len: %d)", valeur, valeur.length)
+
     let valeurArray = new TextEncoder().encode(valeur)
 
     while(valeurArray.length > 0) {
@@ -274,28 +276,28 @@ function decoderSwitches(val) {
     return switches
 }
 
-export async function authentifier(workers, bluetoothServer) {
+export async function authentifier(bluetoothServer, privateKey, commandeAuthSignee) {
     const publicPeerDataview = await chargerClePublique(bluetoothServer)
     const publicPeer = new Uint8Array(publicPeerDataview.buffer)
     console.debug("Cle publique peer pour auth ", publicPeer)
 
     // Generer keypair pour le chiffrage des commandes
-    const keyPair = genererKeyPairX25519()
-    const publicString = Buffer.from(keyPair.public).toString('hex')
-    console.debug("Keypair : %O, public %s", keyPair, publicString)
+    // const keyPair = genererKeyPairX25519()
+    // const publicString = Buffer.from(keyPair.public).toString('hex')
+    // console.debug("Keypair : %O, public %s", keyPair, publicString)
 
     // Calculer shared secret
-    const sharedSecret = await calculerSharedKey(keyPair.private, publicPeer)
+    const sharedSecret = await calculerSharedKey(privateKey, publicPeer)
     // console.debug("Shared secret : %s %O", Buffer.from(sharedSecret).toString('hex'), sharedSecret)
 
     // Transmettre cle publique
-    const commande = {pubkey: publicString}
-    const commandeSignee = await workers.chiffrage.formatterMessage(
-        commande, 'SenseursPassifs',
-        {kind: MESSAGE_KINDS.KIND_COMMANDE, action: 'authentifier'}
-    )
+    // const commande = {pubkey: publicString}
+    // const commandeSignee = await workers.chiffrage.formatterMessage(
+    //     commande, 'SenseursPassifs',
+    //     {kind: MESSAGE_KINDS.KIND_COMMANDE, action: 'authentifier'}
+    // )
     const cb = async characteristic => {
-        await transmettreDict(characteristic, commandeSignee)
+        await transmettreDict(characteristic, commandeAuthSignee)
     }
     const commandeUuid = millegrillesServicesConst.services.commandes.uuid,
             setCommandUuid = millegrillesServicesConst.services.commandes.characteristics.setCommand
@@ -303,7 +305,7 @@ export async function authentifier(workers, bluetoothServer) {
 
     // Verifier que la characteristic auth est vide (len: 0). Indique succes.
     let succes = false
-    const fingerprint = commandeSignee.pubkey
+    const fingerprint = commandeAuthSignee.pubkey
     console.debug("Fingerprint certificat signature : ", fingerprint)
     for(let i=0; i<10; i++) {
         await new Promise(resolve=>setTimeout(resolve, 500))

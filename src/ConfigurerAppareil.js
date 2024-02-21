@@ -1,4 +1,4 @@
-import {useState, useCallback, useEffect} from 'react'
+import {useState, useCallback, useEffect, useMemo} from 'react'
 
 import Alert from 'react-bootstrap/Alert'
 import Button from 'react-bootstrap/Button'
@@ -12,7 +12,10 @@ import {
     requestDevice, chargerEtatAppareil, transmettreDictChiffre, 
     submitConfiguration as bleSubmitConfiguration, 
     submitWifi as bleSubmitWifi,
+    authentifier as bleAuthentifier,
 } from './bleCommandes'
+
+import useWorkers from './WorkerContext'
 
 function ConfigurerAppareil(props) {
 
@@ -20,18 +23,34 @@ function ConfigurerAppareil(props) {
     const [deviceSelectionne, setDeviceSelectionne] = useState('')
     const [bluetoothServer, setBluetoothServer] = useState('')
     const [authSharedSecret, setAuthSharedSecret] = useState('')
+    const [authMessage, setAuthMessage] = useState('')
+    const [authPrivateKey, setAuthPrivateKey] = useState('')
 
     const [ssid, setSsid] = useState('')
     const [wifiPassword, setWifiPassword] = useState('')
     const [relai, setRelai] = useState('')    
-
-    const workers = null
 
     const fermerAppareilCb = useCallback(()=>{
         setDeviceSelectionne('')
         setBluetoothServer('')
         setAuthSharedSecret('')
     }, [setDeviceSelectionne, setBluetoothServer, setAuthSharedSecret])
+
+    const processAuthMessage = useCallback(message=>{
+        const privateKey = Buffer.from(message.attachements.privateKey, 'hex')
+        console.debug("Private key : %O", privateKey)
+        const caPem = message.millegrille
+        const contenu = JSON.parse(message.contenu)
+        const relai = contenu.relai
+
+        // Retirer millegrille, attachements
+        const messageNettoye = {...message, millegrille: undefined, attachements: undefined}
+
+        // Set valeurs auth
+        setRelai(relai)
+        setAuthMessage(messageNettoye)
+        setAuthPrivateKey(privateKey)
+    }, [setAuthMessage, setAuthPrivateKey, setRelai])
 
     const scanCb = useCallback(()=>{
         console.debug("Request device")
@@ -72,6 +91,17 @@ function ConfigurerAppareil(props) {
         }
     }, [deviceSelectionne, setBluetoothServer, fermerAppareilCb])
 
+    useEffect(()=>{
+        if(bluetoothServer && bluetoothServer.connected && authMessage && authPrivateKey) {
+            bleAuthentifier(bluetoothServer, authPrivateKey, authMessage)
+                .then(sharedKey=>{
+                    console.debug("Shared key : ", sharedKey)
+                    setAuthSharedSecret(sharedKey.sharedSecret)
+                })
+                .catch(err=>console.error("Erreur BLE authentifier ", err))
+        }
+    }, [bluetoothServer, authMessage, authPrivateKey, setAuthSharedSecret])
+
     if(bluetoothServer) return (
         <div>
             <ConfigurerAppareilSelectionne 
@@ -94,6 +124,8 @@ function ConfigurerAppareil(props) {
                 setWifiPassword={setWifiPassword}
                 relai={relai}
                 setRelai={setRelai} />
+
+            <Authentification authActive={!!authPrivateKey && !!authMessage} setAuthMessage={processAuthMessage} />
 
             <p>Les boutons suivants permettent de trouver un appareil avec la radio bluetooth.</p>
 
@@ -149,7 +181,7 @@ function ListeAppareil(props) {
 function ConfigurerAppareilSelectionne(props) {
     const { deviceSelectionne, server, ssid, wifiPassword, relai, authSharedSecret, fermer } = props
 
-    const workers = null  // useWorkers()
+    const workers = useWorkers()
 
     const [etatAppareil, setEtatAppareil] = useState('')
 
@@ -283,7 +315,7 @@ function ValeurHumidite(props) {
 function SwitchBluetooth(props) {
     const { value, label, idx, server, authSharedSecret } = props
 
-    const workers = null  // useWorkers()
+    const workers = useWorkers()
 
     const commandeSwitchCb = useCallback(e=>{
         const { name, value } = e.currentTarget
@@ -341,6 +373,49 @@ function ValeursConfiguration(props) {
                 <Form.Control type="text" placeholder="https://millegrilles.com/senseurspassifs_relai ..." value={relai} onChange={e=>setRelai(e.currentTarget.value)} />
             </Form.Group>
             <p></p>
+        </div>
+    )
+}
+
+function Authentification(props) {
+
+    const { authActive, setAuthMessage } = props
+
+    const workers = useWorkers()
+
+    const variantButton = useMemo(()=>{
+        if(authActive) return 'success'
+        return 'secondary'
+    }, [authActive])
+
+    const authentifierCb = useCallback(()=>{
+        console.debug("Params Authentification")
+        navigator.clipboard.readText()
+            .then(async val => {
+                if(typeof(val) === 'string') {
+                    const params = JSON.parse(val)
+                    console.debug("Clipboard value : %O", params)
+                    const resultatVerification = await workers.chiffrage.verifierMessage(params, {support_idmg_tiers: true})
+                    console.debug("Resultat verification message : ", resultatVerification)
+                    if(true) {
+                        setAuthMessage(params)
+                    }
+                } else {
+                    console.warn("Clipboard mauvais type")
+                }
+            })
+            .catch(err=>{
+                console.error("Erreur lecture clipboard : ", err)
+            })
+    }, [workers, setAuthMessage])
+
+    return (
+        <div>
+            <p>
+                Authentification : utiliser SenseursPassifs pour copier l'information d'authentification. Revenir
+                sur cette page et cliquer sur le bouton Verifier pour conserver l'information de connexion aux appareils.
+            </p>
+            <Button variant={variantButton} onClick={authentifierCb} disabled={!navigator.clipboard}>Authentifier</Button>
         </div>
     )
 }

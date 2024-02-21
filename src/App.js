@@ -20,7 +20,7 @@ import './index.scss'
 import './App.css'
 
 import ErrorBoundary from './ErrorBoundary'
-import useWorkers, { WorkerProvider } from './WorkerContext'
+import { WorkerProvider } from './WorkerContext'
 
 const Menu = React.lazy( () => import('./Menu') )
 const ConfigurerAppareil = React.lazy( () => import('./ConfigurerAppareil') )
