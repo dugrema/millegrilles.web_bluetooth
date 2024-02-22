@@ -6,7 +6,10 @@ import Row from 'react-bootstrap/Row'
 import Col from 'react-bootstrap/Col'
 import Form from 'react-bootstrap/Form'
 
-import { FormatterDate } from '@dugrema/millegrilles.reactjs'
+import { pki } from '@dugrema/node-forge'
+import { encoderIdmg } from '@dugrema/millegrilles.utiljs/src/idmg'
+import { extraireExtensionsMillegrille } from '@dugrema/millegrilles.utiljs/src/forgecommon'
+import { FormatterDate, FormatterDuree } from '@dugrema/millegrilles.reactjs'
 
 import { 
     requestDevice, chargerEtatAppareil, transmettreDictChiffre, 
@@ -26,6 +29,8 @@ function ConfigurerAppareil(props) {
     const [authMessage, setAuthMessage] = useState('')
     const [authPrivateKey, setAuthPrivateKey] = useState('')
 
+    const [userId, setUserId] = useState('')
+    const [idmg, setIdmg] = useState('')
     const [ssid, setSsid] = useState('')
     const [wifiPassword, setWifiPassword] = useState('')
     const [relai, setRelai] = useState('')    
@@ -36,10 +41,25 @@ function ConfigurerAppareil(props) {
         setAuthSharedSecret('')
     }, [setDeviceSelectionne, setBluetoothServer, setAuthSharedSecret])
 
-    const processAuthMessage = useCallback(message=>{
+    const processAuthMessage = useCallback(async message=>{
+        console.debug("ProcessAuthMessage ", message)
+        if(!message) {
+            // Reset
+            setAuthMessage('')
+            setAuthPrivateKey('')
+            return
+        }
+
         const privateKey = Buffer.from(message.attachements.privateKey, 'hex')
         console.debug("Private key : %O", privateKey)
         const caPem = message.millegrille
+
+        const idmg = await encoderIdmg(caPem)
+        const certForge = pki.certificateFromPem(message.certificat[0])
+        const extensions = extraireExtensionsMillegrille(certForge)
+        console.debug("IDMG : %O, Extensions : %O", idmg, extensions)
+        const userId = extensions.userId
+
         const contenu = JSON.parse(message.contenu)
         const relai = contenu.relai
 
@@ -50,7 +70,9 @@ function ConfigurerAppareil(props) {
         setRelai(relai)
         setAuthMessage(messageNettoye)
         setAuthPrivateKey(privateKey)
-    }, [setAuthMessage, setAuthPrivateKey, setRelai])
+        setIdmg(idmg)
+        setUserId(userId)
+    }, [setAuthMessage, setAuthPrivateKey, setRelai, setUserId, setIdmg])
 
     const scanCb = useCallback(()=>{
         console.debug("Request device")
@@ -119,6 +141,8 @@ function ConfigurerAppareil(props) {
             <ConfigurerAppareilSelectionne 
                 deviceSelectionne={deviceSelectionne} 
                 server={bluetoothServer} 
+                idmg={idmg}
+                userId={userId}
                 ssid={ssid}
                 wifiPassword={wifiPassword}
                 relai={relai} 
@@ -139,10 +163,14 @@ function ConfigurerAppareil(props) {
                 relai={relai}
                 setRelai={setRelai} />
 
-            <RecevoirAuthentification authActive={!!authPrivateKey && !!authMessage} setAuthMessage={processAuthMessage} />
+            <RecevoirAuthentification 
+                authActive={!!authPrivateKey && !!authMessage} 
+                authMessage={authMessage} 
+                setAuthMessage={processAuthMessage} />
 
-            <p>Les boutons suivants permettent de trouver un appareil avec la radio bluetooth.</p>
+            {/* <p>Les boutons suivants permettent de trouver un appareil avec la radio bluetooth.</p> */}
 
+            <p></p>
             <p>
                 <Button variant="primary" onClick={scanCb}>Scan</Button>{' '}
                 <Button variant="secondary" onClick={fermerAppareilCb} disabled={!deviceSelectionne}>Fermer</Button>
@@ -193,7 +221,7 @@ function ListeAppareil(props) {
 }
 
 function ConfigurerAppareilSelectionne(props) {
-    const { deviceSelectionne, server, ssid, wifiPassword, relai, authMessage, authSharedSecret, authentifier, fermer } = props
+    const { deviceSelectionne, server, idmg, userId, ssid, wifiPassword, relai, authMessage, authSharedSecret, authentifier, fermer } = props
 
     const [etatAppareil, setEtatAppareil] = useState('')
 
@@ -250,6 +278,8 @@ function ConfigurerAppareilSelectionne(props) {
             <SoumettreConfiguration 
                 show={!!etatAppareil}
                 server={server} 
+                idmg={idmg}
+                userId={userId}
                 ssid={ssid}
                 wifiPassword={wifiPassword}
                 relai={relai} />
@@ -427,11 +457,17 @@ function ValeursConfiguration(props) {
 
 function RecevoirAuthentification(props) {
 
-    const { authActive, setAuthMessage } = props
+    const { authActive, authMessage, setAuthMessage } = props
 
     const [invalide, setInvalide] = useState(false)
 
     const workers = useWorkers()
+
+    const dateExpiration = useMemo(()=>{
+        if(!authMessage) return ''
+        const contenu = JSON.parse(authMessage.contenu)
+        return contenu.exp
+    }, [authMessage])
 
     const variantButton = useMemo(()=>{
         if(authActive) return 'success'
@@ -439,21 +475,38 @@ function RecevoirAuthentification(props) {
         return 'secondary'
     }, [authActive, invalide])
 
+    useEffect(()=>{ 
+        if(invalide) {
+            setAuthMessage('').catch(err=>console.error("Erreur setAuthMessage ", err))
+        }
+    }, [invalide, setAuthMessage])
+
+    const parseAuthentification = useCallback(async params => {
+        const contenu = JSON.parse(params.contenu)
+        const expiration = contenu.exp * 1000   // convertir en ms
+        if(new Date().getTime() < expiration) {
+            const resultatVerification = await workers.chiffrage.verifierMessage(params, {support_idmg_tiers: true})
+            console.debug("Resultat verification message : ", resultatVerification)
+            if(resultatVerification) {
+                setAuthMessage(params)
+                window.localStorage.setItem('authToken', JSON.stringify(params))
+                setInvalide(false)
+            } else {
+                setInvalide(true)
+            }
+        } else {
+            setInvalide(true)
+        }
+    }, [workers, setAuthMessage, setInvalide])
+
     const authentifierCb = useCallback(()=>{
         console.debug("Params Authentification")
         navigator.clipboard.readText()
             .then(async val => {
+                console.debug("Clipboard value : %O", val)
                 if(typeof(val) === 'string') {
                     const params = JSON.parse(val)
-                    console.debug("Clipboard value : %O", params)
-                    const resultatVerification = await workers.chiffrage.verifierMessage(params, {support_idmg_tiers: true})
-                    console.debug("Resultat verification message : ", resultatVerification)
-                    if(resultatVerification) {
-                        setAuthMessage(params)
-                        setInvalide(false)
-                    } else {
-                        setInvalide(true)
-                    }
+                    await parseAuthentification(params)
                 } else {
                     console.warn("Clipboard mauvais type")
                     setInvalide(true)
@@ -463,15 +516,73 @@ function RecevoirAuthentification(props) {
                 console.error("Erreur lecture clipboard : ", err)
                 setInvalide(true)
             })
-    }, [workers, setAuthMessage, setInvalide])
+    }, [parseAuthentification, setInvalide])
+
+    useEffect(()=>{
+        const configurationSauvegardee = window.localStorage.getItem('authToken')
+        if(configurationSauvegardee) {
+            const configJson = JSON.parse(configurationSauvegardee)
+            const contenu = JSON.parse(configJson.contenu)
+            const expiration = contenu.exp * 1000  // Convertir en ms
+            if(new Date().getTime() < expiration) {
+                parseAuthentification(configJson)
+                    .catch(err=>console.error("Erreur authentifier localStorage", err))
+            }
+        }
+    }, [parseAuthentification])
 
     return (
         <div>
+            {/* <p>Authentification</p>
             <p>
-                Authentification : utiliser SenseursPassifs pour copier l'information d'authentification en memoire (clipboard). 
-                Revenir sur cette page et cliquer sur le bouton Verifier pour conserver l'information de connexion aux appareils.
+                L'authentification est optionnelle. Ell permet d'utiliser les actions (ON, OFF, reboot, etc) sur l'appareil.
             </p>
-            <Button variant={variantButton} onClick={authentifierCb} disabled={!navigator.clipboard}>Authentifier</Button>
+            <p>
+                Utiliser SenseursPassifs pour copier l'information d'authentification en memoire (clipboard). 
+                Revenir sur cette page et cliquer sur le bouton Verifier pour conserver l'information de connexion aux appareils.
+            </p> */}
+            <Row>
+                <Col xs={12} sm={3} md={2}>
+                    <Button variant={variantButton} onClick={authentifierCb} disabled={!navigator.clipboard}>Authentifier</Button>
+                </Col>
+                <Col><DateExpiration value={dateExpiration} /></Col>
+            </Row>
+        </div>
+    )
+}
+
+function DateExpiration(props) {
+    const {value} = props
+
+    const [dureeRestante, setDureeRestante] = useState('')
+
+    const calculerDuree = useCallback(()=>{
+        const dureeRestante = value - (new Date().getTime() / 1000)
+        setDureeRestante(dureeRestante)
+    }, [value, setDureeRestante])
+
+    const dateExpiration = useMemo(()=>{
+        if(!value) return ''
+        const dateExp = new Date(value*1000) + ''
+        return dateExp
+    }, [value])
+
+    useEffect(()=>{
+        calculerDuree()
+        const interval = setInterval(calculerDuree, 1000)
+        return () => clearInterval(interval)
+    }, [calculerDuree])
+
+    if(!value) return ''
+
+    return (
+        <div>
+            <Row>
+                <Col xs={5} md={3} xl={2}>Duree restante</Col><Col><FormatterDuree value={dureeRestante}/></Col>
+            </Row>
+            <Row>
+                <Col xs={5} md={3} xl={2}>Date expiration</Col><Col>{dateExpiration}</Col>
+            </Row>
         </div>
     )
 }
@@ -514,7 +625,8 @@ function SoumettreConfiguration(props) {
 
     const submitConfigurationServer = useCallback(e=>{
         console.debug("Submit configuration ", e)
-        bleSubmitConfiguration()
+        if(!relai || !idmg || !userId) return  // Rien a faire
+        bleSubmitConfiguration(server, relai, idmg, userId)
             .then(()=>{
                 console.debug("Configuration submit OK")
             })
